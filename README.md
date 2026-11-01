@@ -1,54 +1,21 @@
-# vue-task-board
+# learning-vue
 
-This template should help get you started developing with Vue 3 in Vite.
+Learn Vue 3 from basics to production by building one **Task Board** app.
+Each step is a separate, runnable folder in [`steps/`](steps), and every step builds on the one before.
+See the full plan in [ROADMAP.md](ROADMAP.md).
 
-## Recommended IDE Setup
+| Step | Folder | Topic |
+|------|--------|-------|
+| 01 | [steps/01-reactivity](steps/01-reactivity) | `ref`, `computed`, `watch`, template syntax |
+| 02 | [steps/02-components](steps/02-components) | props, emits, `defineModel`, slots |
+| 03 | coming | composables |
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
-
-## Recommended Browser Setup
-
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
-npm install
+## Setup
+```bash
+npx npm@11 install     # one install for all steps (npm workspaces). npm 10.9 crashes, use 11+ or pnpm
+npm run dev:02         # run a step
+npm run test:02        # test a step
+npm test               # test every step
 ```
 
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Type-Check, Compile and Minify for Production
-
-```sh
-npm run build
-```
-
-### Run Unit Tests with [Vitest](https://vitest.dev/)
-
-```sh
-npm run test:unit
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
-```
+Stack: Vue 3.5 · Vite · TypeScript · Vitest · Vue Test Utils · ESLint + oxlint · Prettier

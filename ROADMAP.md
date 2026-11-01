@@ -1,12 +1,12 @@
 # Vue.js Roadmap: basics → production
 
-Mini project: **Task Board** (`vue-task-board/`), one app that grows every step.
+Mini project: **Task Board**, one app that grows every step. Each step is its own folder in `steps/`.
 Stack: Vue 3.5 + Vite + TypeScript + Vitest + Vue Test Utils + ESLint/Prettier.
 
 | # | Step | You learn | Next.js / React equivalent |
 |---|------|-----------|----------------------------|
 | 1 | ✅ Setup + reactivity | `<script setup>`, `ref`, `computed`, `watch`, `v-model`, `v-for`, `v-if`, `@event`, scoped CSS | `useState`, `useMemo`, `useEffect`, JSX |
-| 2 | Components | `defineProps`, `defineEmits`, `defineModel`, slots, split `TaskItem` / `TaskForm` | props, callback props, `children` |
+| 2 | ✅ Components | `defineProps`, `defineEmits`, `defineModel`, slots, split `TaskItem` / `TaskForm` | props, callback props, `children` |
 | 3 | Composables | `useTasks()`, `useLocalStorage()`, `reactive` vs `ref`, `toRefs`, lifecycle (`onMounted`) | custom hooks |
 | 4 | Vue Router | routes, `<RouterLink>`, params (`/tasks/:id`), nested routes, lazy routes, navigation guards | App Router, `useParams`, `middleware.ts` |
 | 5 | Pinia | store (setup style), getters, actions, `storeToRefs`, devtools | Zustand / Context |
@@ -21,10 +21,5 @@ Stack: Vue 3.5 + Vite + TypeScript + Vitest + Vue Test Utils + ESLint/Prettier.
 - `setup` runs **once** per component; React's function body runs **every render**. So no stale closures and no dependency arrays.
 - Templates compile to optimized render functions, so you rarely need `memo` / `useCallback`.
 
-## Run step 1
-```bash
-cd vue-task-board
-npm install     # use npm >= 11 (npm 10.9 crashes on this dep tree) or pnpm
-npm run dev
-npm run test:unit
-```
+## Run
+See [README.md](README.md#setup).
