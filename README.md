@@ -8,7 +8,8 @@ See the full plan in [ROADMAP.md](ROADMAP.md).
 |------|--------|-------|
 | 01 | [steps/01-reactivity](steps/01-reactivity) | `ref`, `computed`, `watch`, template syntax |
 | 02 | [steps/02-components](steps/02-components) | props, emits, `defineModel`, slots |
-| 03 | coming | composables |
+| 03 | [steps/03-composables](steps/03-composables) | composables, lifecycle, `watch` deep, localStorage |
+| 04 | coming | Vue Router |
 
 ## Setup
 ```bash

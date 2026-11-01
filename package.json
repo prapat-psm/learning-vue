@@ -10,6 +10,8 @@
     "test:01": "npm run test:unit -w steps/01-reactivity -- --run",
     "dev:02": "npm run dev -w steps/02-components",
     "test:02": "npm run test:unit -w steps/02-components -- --run",
+    "dev:03": "npm run dev -w steps/03-composables",
+    "test:03": "npm run test:unit -w steps/03-composables -- --run",
     "test": "npm run test:unit --workspaces -- --run",
     "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces"

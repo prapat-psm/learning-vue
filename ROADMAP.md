@@ -7,7 +7,7 @@ Stack: Vue 3.5 + Vite + TypeScript + Vitest + Vue Test Utils + ESLint/Prettier.
 |---|------|-----------|----------------------------|
 | 1 | ✅ Setup + reactivity | `<script setup>`, `ref`, `computed`, `watch`, `v-model`, `v-for`, `v-if`, `@event`, scoped CSS | `useState`, `useMemo`, `useEffect`, JSX |
 | 2 | ✅ Components | `defineProps`, `defineEmits`, `defineModel`, slots, split `TaskItem` / `TaskForm` | props, callback props, `children` |
-| 3 | Composables | `useTasks()`, `useLocalStorage()`, `reactive` vs `ref`, `toRefs`, lifecycle (`onMounted`) | custom hooks |
+| 3 | ✅ Composables | `useTasks()`, `useLocalStorage()`, `reactive` vs `ref`, `toRefs`, lifecycle (`onMounted`) | custom hooks |
 | 4 | Vue Router | routes, `<RouterLink>`, params (`/tasks/:id`), nested routes, lazy routes, navigation guards | App Router, `useParams`, `middleware.ts` |
 | 5 | Pinia | store (setup style), getters, actions, `storeToRefs`, devtools | Zustand / Context |
 | 6 | Forms + validation | `v-model` modifiers, validation (VeeValidate + Zod), error UI | react-hook-form + Zod |
