@@ -1,0 +1,16 @@
+import type { Component } from 'vue'
+
+export interface PlaygroundStep {
+  id: string
+  title: string
+  load: () => Promise<Component>
+}
+
+// Each earlier step's real App.vue, imported straight from its folder.
+// Dynamic import() = lazy route: step 01's code is only downloaded when you open /playground/01.
+// vite.config.ts has a small plugin so '@/...' inside each step resolves to THAT step's src.
+export const playgroundSteps: PlaygroundStep[] = [
+  { id: '01', title: 'Reactivity', load: () => import('../../../01-reactivity/src/App.vue') },
+  { id: '02', title: 'Components', load: () => import('../../../02-components/src/App.vue') },
+  { id: '03', title: 'Composables', load: () => import('../../../03-composables/src/App.vue') },
+]
