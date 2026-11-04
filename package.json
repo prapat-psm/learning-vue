@@ -12,9 +12,12 @@
     "test:02": "npm run test:unit -w steps/02-components -- --run",
     "dev:03": "npm run dev -w steps/03-composables",
     "test:03": "npm run test:unit -w steps/03-composables -- --run",
+    "dev:04": "npm run dev -w steps/04-router",
+    "test:04": "npm run test:unit -w steps/04-router -- --run",
     "test": "npm run test:unit --workspaces -- --run",
     "build": "npm run build --workspaces",
-    "lint": "npm run lint --workspaces"
+    "lint": "npm run lint --workspaces",
+    "dev": "npm run dev:04"
   },
   "engines": {
     "node": "^22.18.0 || >=24.12.0"
