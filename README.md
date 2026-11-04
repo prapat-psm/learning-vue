@@ -10,7 +10,8 @@ See the full plan in [ROADMAP.md](ROADMAP.md).
 | 02 | [steps/02-components](steps/02-components) | props, emits, `defineModel`, slots |
 | 03 | [steps/03-composables](steps/03-composables) | composables, lifecycle, `watch` deep, localStorage |
 | 04 | [steps/04-router](steps/04-router) | Vue Router, nested + lazy routes, guards, **Playground with every step** |
-| 05 | coming | Pinia |
+| 05 | [steps/05-pinia](steps/05-pinia) | Pinia store, `storeToRefs`, shared state, `createTestingPinia` |
+| 06 | coming | Forms + validation |
 
 ## Setup
 ```bash
