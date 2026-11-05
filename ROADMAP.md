@@ -11,7 +11,7 @@ Stack: Vue 3.5 + Vite + TypeScript + Vitest + Vue Test Utils + ESLint/Prettier.
 | 4 | ✅ Vue Router + Playground | routes, `<RouterLink>`, params (`/tasks/:id`), nested routes, lazy routes, navigation guards | App Router, `useParams`, `middleware.ts` |
 | 5 | ✅ Pinia | store (setup style), getters, actions, `storeToRefs`, devtools | Zustand / Context |
 | 6 | ✅ Forms + validation | `v-model` modifiers, validation (VeeValidate + Zod), error UI | react-hook-form + Zod |
-| 7 | API calls | fetch in composable, loading/error states, abort, TanStack Query for Vue | `fetch` in Server Components, TanStack Query |
+| 7 | ✅ API calls | fetch in composable, loading/error states, abort, TanStack Query for Vue | `fetch` in Server Components, TanStack Query |
 | 8 | Testing deep dive | component tests, Pinia testing, mocking fetch (MSW), router tests, coverage | same Vitest + RTL patterns |
 | 9 | Production quality | env vars (`import.meta.env`), error handling, `provide/inject`, `Teleport`, `Suspense`, performance (`shallowRef`, `v-memo`, `KeepAlive`), a11y | `.env`, error boundaries, portals |
 | 10 | Build & deploy | `vite build`, CI (lint + type-check + test), deploy to Vercel/Netlify, optional Nuxt intro (SSR) | `next build`, Vercel |

@@ -232,21 +232,88 @@ type TaskInput = z.infer<typeof taskSchema>  // type มาจาก schema จ�
 
 ---
 
-### ⏳ Step 07 · เรียก API
+### ✅ Step 07 · เรียก API + TanStack Query · `steps/07-api`
 
-**จะเรียน:** ดึงและส่งข้อมูลกับ server จริง
+**เรียนอะไร:** คุยกับ server จริงผ่าน `fetch` จัดการ loading / error / ยกเลิก request และใช้ TanStack Query ทำ cache
 
-- `fetch` ใน composable จัดการสถานะ loading, error และยกเลิก request ด้วย `AbortController`
-- Mock API ด้วย MSW หรือ json-server
-- **TanStack Query for Vue** (`useQuery`, `useMutation`) ใช้ API เดียวกับฝั่ง React เกือบทุกอย่าง
-- **แนวคิดสำคัญ:** แยก **server state** (ข้อมูลจาก API ที่ต้อง cache และ refetch → Query) ออกจาก **client state** (UI state, ข้อมูลที่ผู้ใช้กำลังแก้ → Pinia/ref) อย่าเอาข้อมูล API ไปยัดใส่ store เอง
-- Optimistic update: อัปเดต UI ก่อน server ตอบ แล้ว rollback ถ้าล้มเหลว
+**ทำไมต้องมี step นี้:** step 01-06 เก็บข้อมูลใน localStorage ซึ่งไม่มีทาง "ช้า" หรือ "ล้มเหลว" แต่ API จริงมีทั้งสองอย่าง
+UI ทุกหน้าที่โหลดข้อมูลจึงต้องมี **3 สถานะ** เสมอ: กำลังโหลด, error (พร้อมปุ่ม Retry), และมีข้อมูล
+
+**1. Mock API ด้วย MSW (Mock Service Worker)**
+- MSW ดัก `fetch()` **ตัวจริง**: ในเบราว์เซอร์ผ่าน Service Worker (`public/mockServiceWorker.js`) และใน Vitest ผ่าน Node
+- โค้ดแอปจึงเป็นโค้ด production 100% ถ้ามี backend จริง ตั้ง `VITE_API_URL` แล้ว MSW จะไม่ถูกโหลดเลย
+- handler (`src/mocks/handlers.ts`) เทียบได้กับ Route Handler ของ Next.js (`app/api/tasks/route.ts`) และใช้ **Zod schema ตัวเดียวกับฟอร์ม** ตรวจข้อมูล ส่ง 422 กลับเมื่อผิด
+
+**2. `http()` wrapper: สิ่งที่ `fetch` ไม่ทำให้**
+```ts
+// fetch reject เฉพาะ network error เท่านั้น! 404/500 ถือว่า "สำเร็จ" ต้อง throw เอง
+if (!res.ok) throw new ApiError(res.status, body)
+```
+ทุกโปรเจกต์จริงมีไฟล์แบบนี้ (หรือใช้ ky / ofetch / axios) หน้าจอไม่เรียก `fetch` ตรงๆ แต่เรียกผ่าน `tasksApi.list()`
+
+**3. `useFetch` เขียนเอง (หน้า detail)** เพื่อให้เห็นว่า library ทำอะไรให้เรา
+```ts
+const { data, error, isLoading, refetch } = useFetch<Task>(() => `/tasks/${props.id}`)
+```
+- ใช้ `watch` บน getter ของ URL แทน dependency array ของ `useEffect`
+- URL เปลี่ยน → `abort()` request เก่าก่อน จึงไม่มี **race condition** (คำตอบเก่ามาทับคำตอบใหม่)
+- component ถูกทำลาย → `onScopeDispose` ยกเลิก request (≈ cleanup ของ `useEffect`)
+- **ที่ไม่มี:** cache, dedupe, retry, refetch เมื่อกลับมาที่แท็บ และ invalidation ต้องเรียก `refetch()` เองหลังแก้ข้อมูล
+
+**4. TanStack Query (หน้า board, new, edit)** API เกือบเหมือน React ทุกตัว
+```ts
+const { data, isPending, isError, error, refetch } = useQuery({
+  queryKey: ['tasks', 'list'],
+  queryFn: ({ signal }) => tasksApi.list(signal),
+})
+```
+| แนวคิด | ความหมาย |
+|---|---|
+| `queryKey` | ชื่อของข้อมูลใน cache สอง component ใช้ key เดียวกัน = request เดียว (header badge กับ board) |
+| `staleTime` | ช่วงที่ข้อมูลยัง "สด" กลับมาหน้าเดิมภายในเวลานี้จะไม่ยิงใหม่ |
+| `isPending` vs `isFetching` | `isPending` = ยังไม่เคยมีข้อมูล (แสดง skeleton), `isFetching` = กำลัง refetch เบื้องหลังโดยโชว์ข้อมูลเก่าไปก่อน |
+| `invalidateQueries` | "ข้อมูลนี้เก่าแล้ว ไปโหลดใหม่" ≈ `revalidatePath()` ของ Next.js |
+| `useMutation` | สำหรับการเขียน (POST/PATCH/DELETE) มี `mutate` (ไม่รอ) และ `mutateAsync` (ได้ Promise) |
+
+**ความต่างเฉพาะของ Vue:** `queryKey` เป็น `computed` ได้ เมื่อ `props.id` เปลี่ยน query จะโหลดใหม่เอง
+และค่าที่คืนมาเป็น **ref ทุกตัว** ต้อง destructure ก่อนใช้ใน template (template unwrap เฉพาะ ref ชั้นบนสุด)
+
+**5. Optimistic update** (ติ๊ก checkbox แล้วเปลี่ยนทันที ไม่ต้องรอ server)
+```ts
+onMutate: async (task) => {
+  await qc.cancelQueries({ queryKey })           // กัน refetch เก่ามาทับ
+  const previous = qc.getQueryData(queryKey)     // จำค่าเดิมไว้
+  qc.setQueryData(queryKey, (old) => /* แก้ทันที */)
+  return { previous }
+},
+onError: (_e, _v, ctx) => qc.setQueryData(queryKey, ctx.previous),  // พัง → ย้อนกลับ
+onSettled: () => qc.invalidateQueries({ queryKey }),                 // จบแล้ว sync กับ server
+```
+
+**6. แยก server state ออกจาก client state** (แนวคิดที่สำคัญที่สุดของ step นี้)
+- **Server state** (รายการ task) → TanStack Query เป็นเจ้าของ cache **ไม่ต้องคัดลอกไปใส่ Pinia**
+- **Client state** (filter all/active/done) → Pinia store เล็กๆ `useBoardStore`
+- store `tasks` ของ step 05-06 จึงหายไป เพราะ cache ของ Query ทำหน้าที่นั้นแทนแล้ว
+
+**7. Error จาก server กลับเข้าฟอร์ม:** step 06 ตรวจชื่อซ้ำเองใน store ตอนนี้ server ตอบ 422 พร้อม `fieldErrors` แล้ว `applyServerErrors()` ส่งเข้า `setFieldError` ของ VeeValidate
+
+**8. Route guard หายไป:** router ไม่รู้ว่า task 999 มีอยู่จริงไหมจนกว่าจะถาม server แต่ละหน้าจึงแสดง 404 จาก response เอง (≈ เรียก `notFound()` ใน page ของ Next.js หลัง fetch)
+
+**ข้อผิดพลาดที่พบบ่อย**
+- ลืมว่า `fetch` ไม่ throw เมื่อได้ 404/500 → UI แสดงข้อมูลว่างแทน error
+- เอาข้อมูล API ไปเก็บใน Pinia แล้วต้อง sync เอง → ใช้ Query cache แทน
+- ใช้ `createError.message` ในรูปแบบ object ซ้อนใน template แล้วไม่ทำงาน → destructure ref ออกมาก่อน
+- `retry` 404 ซ้ำๆ → ตั้ง `retry` ให้ลองใหม่เฉพาะ network/5xx (ดู `api/queryClient.ts`)
+- เขียนเทสต์ด้วย `vi.mock` ทับ `fetch` → ใช้ MSW แทน เทสต์จะใกล้ของจริงและเปลี่ยน implementation ได้โดยเทสต์ไม่พัง
+- ใน test ต้องสร้าง `QueryClient` ใหม่ทุกเทสต์ และปิด `retry` ไม่อย่างนั้น cache รั่วข้ามเทสต์และเทสต์ error ช้า
+
+**เทสต์:** `src/test/setup.ts` เปิด MSW ให้ทุกไฟล์, `server.use(...)` เปลี่ยนคำตอบเฉพาะเทสต์ (เช่น 500 หรือ delay), `db.reset()` ล้างข้อมูลหลังทุกเทสต์
 
 ## Phase 3 · คุณภาพระดับ Production
 
-### ⏳ Step 08 · Testing เชิงลึก
+### ⏳ Step 08 · Testing เชิงลึก (step ถัดไป)
 - **Test pyramid:** unit (composable/store) มากที่สุด → component → integration (router + pinia) → E2E น้อยที่สุด
-- Mock API ใน Vitest ด้วย MSW และวัด coverage
+- ต่อยอด MSW จาก step 07: จัดชุด handler สำหรับ edge case และวัด coverage
 - E2E ด้วย Playwright เฉพาะ flow สำคัญ (สร้าง แก้ ลบ task)
 - `@testing-library/vue` (query แบบที่ผู้ใช้มองเห็น) เทียบกับ Vue Test Utils (เข้าถึงข้างใน component)
 
