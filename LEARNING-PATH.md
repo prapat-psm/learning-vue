@@ -311,13 +311,78 @@ onSettled: () => qc.invalidateQueries({ queryKey }),                 // จบ�
 
 ## Phase 3 · คุณภาพระดับ Production
 
-### ⏳ Step 08 · Testing เชิงลึก (step ถัดไป)
-- **Test pyramid:** unit (composable/store) มากที่สุด → component → integration (router + pinia) → E2E น้อยที่สุด
-- ต่อยอด MSW จาก step 07: จัดชุด handler สำหรับ edge case และวัด coverage
-- E2E ด้วย Playwright เฉพาะ flow สำคัญ (สร้าง แก้ ลบ task)
-- `@testing-library/vue` (query แบบที่ผู้ใช้มองเห็น) เทียบกับ Vue Test Utils (เข้าถึงข้างใน component)
+### ✅ Step 08 · Testing เชิงลึก · `steps/08-testing`
 
-### ⏳ Step 09 · Pattern สำหรับ Production
+**เรียนอะไร:** เขียนเทสต์ที่ "เชื่อได้" ว่าแอปใช้งานได้จริง ไม่ใช่แค่ทำให้ตัวเลข coverage สูง
+
+**ทำไมต้องมี step นี้:** step 01-07 มีเทสต์อยู่แล้ว แต่ส่วนใหญ่เขียนแบบ Vue Test Utils (หา element ด้วย CSS, `data-test`, `setValue`)
+step นี้เพิ่มวิธีคิดแบบเดียวกับ React Testing Library ที่คุณคุ้นอยู่ และครบทุกชั้นของ test pyramid
+
+**1. Test pyramid ของโปรเจกต์นี้**
+| ชั้น | ตัวอย่างในโค้ด | ทดสอบอะไร | จำนวน |
+|---|---|---|---|
+| Unit | `routes.spec.ts`, `queryClient.spec.ts`, `schemas/` | ฟังก์ชันล้วน ไม่ mount อะไร เร็วมาก | มากที่สุด |
+| Component | `TaskEditor.spec.ts`, `BoardView.spec.ts` | component เดียว + network ปลอม | ปานกลาง |
+| Integration | `board.user.spec.ts`, `App.spec.ts` | ทั้งแอป: router + Pinia + Query + MSW | ปานกลาง |
+| E2E | `e2e/tasks.spec.ts` (Playwright) | build จริง ในเบราว์เซอร์จริง | น้อยที่สุด (flow สำคัญเท่านั้น) |
+
+**2. Testing Library: ทดสอบแบบที่ผู้ใช้เห็น** (`@testing-library/vue` API เดียวกับ React)
+```ts
+const { user } = await renderApp('/')                       // ≈ custom render + providers
+await user.type(screen.getByRole('textbox', { name: 'New task' }), 'Milk{Enter}')
+expect(await screen.findByRole('link', { name: 'Milk' })).toBeInTheDocument()
+```
+- **ลำดับการเลือก query:** `getByRole` → `getByLabelText` → `getByText` → `data-test` เป็นทางเลือกสุดท้าย
+- `getBy*` = ต้องมีตอนนี้, `findBy*` = รอจนมี (หลัง request), `queryBy*` = ใช้ตรวจว่า "ไม่มี"
+- `user-event` จำลองการพิมพ์จริง (focus, keydown, input, change ครบ) ต่างจาก `setValue` ที่ยิงแค่ event
+- ถ้าหา element ด้วย role ไม่เจอ มักแปลว่า **a11y ของหน้าเว็บมีปัญหา** เทสต์จึงช่วยตรวจ accessibility ไปด้วย
+- `jest-dom` matcher: `toBeChecked`, `toHaveValue`, `toHaveAccessibleDescription` อ่านง่ายกว่าเช็ค attribute เอง
+
+**Vue Test Utils vs Testing Library ใช้เมื่อไหร่**
+- **Testing Library:** ค่าเริ่มต้นสำหรับเทสต์หน้าจอและ flow ของผู้ใช้
+- **Vue Test Utils:** เมื่อต้องเข้าถึงข้างใน เช่น ตรวจ `emitted()` ของ component, `props()` ของ stub หรือเรียก `defineExpose`
+
+**3. ข้อมูลทดสอบที่อ่านง่าย: factory + scenario helper**
+```ts
+mockApi.seed([buildTask({ title: 'Fragile' })])   // เทสต์บอกเฉพาะสิ่งที่สำคัญกับมัน
+mockApi.fail('patch', '/tasks/:id', 500)         // server พังเฉพาะ endpoint นี้
+mockApi.networkError('get', '/tasks')            // ไม่มี response เลย (เหมือน offline)
+mockApi.hang('get', '/tasks')                    // ค้างตลอด → ทดสอบสถานะ loading ได้แน่นอน
+const calls = mockApi.record()                   // ตรวจว่าแอป "ส่งอะไร" ไปหา server (สัญญากับ API)
+```
+
+**4. เขียนเทสต์ก่อน เจอบั๊กจริง (TDD เล็กๆ)**
+step 07 ทำ optimistic toggle แล้ว rollback เงียบๆ เมื่อ server พัง ผู้ใช้ไม่รู้เลยว่าการแก้หายไป
+เขียนเทสต์ "rolls back a failed toggle and tells the user" ก่อน (fail) แล้วค่อยเพิ่ม `role="alert"` ใน `BoardView.vue` (pass)
+
+**5. ทดสอบ config และ router แบบ unit**
+- `router.resolve('/tasks/abc').name === 'not-found'` ไม่ต้อง mount อะไร ล็อก "สัญญา URL" ไว้ (bookmark และลิงก์ที่แชร์ไปแล้วพึ่งสิ่งนี้)
+- นโยบาย `retry` ของ QueryClient เป็นแค่ฟังก์ชัน เทสต์ด้วย `it.each` เป็นตาราง
+- `toMatchInlineSnapshot()` เหมาะกับค่าเล็กและคงที่ (query keys) **อย่า snapshot DOM ทั้งหน้า** เพราะคนจะกด update โดยไม่อ่าน
+
+**6. Coverage**
+```bash
+npm run test:coverage -w steps/08-testing   # รายงานใน terminal + coverage/index.html
+```
+- นับเฉพาะโค้ดของแอป ไม่นับ `test/`, `mocks/`, `playground/`
+- ตั้ง `thresholds` ไว้ CI จะ fail เมื่อ coverage ลดลง ใช้ตัวเลขที่ทำได้แล้ว แล้วค่อยขยับขึ้น
+- **Coverage สูงไม่ได้แปลว่าเทสต์ดี** มันบอกแค่ว่า "บรรทัดไหนไม่เคยถูกรัน" ใช้หาจุดที่ลืมเทสต์ (เช่น `queryClient.ts` เคยเป็น 0%)
+
+**7. E2E ด้วย Playwright**
+- รันกับ **production build** (`vite build` + `vite preview`) ไม่ใช่ dev server
+- locator แบบเดียวกับ Testing Library (`getByRole`, `getByLabel`) และ `expect` รอให้เองอัตโนมัติ
+- **เจอ race condition จริง:** ติ๊ก checkbox แล้ว reload ทันที การแก้หาย เพราะ optimistic UI ติ๊กก่อน server บันทึก
+  แก้เทสต์ด้วย `page.waitForResponse(PATCH)` และนี่คือเหตุผลที่ E2E มีค่า: มันจับปัญหาที่ unit test มองไม่เห็น
+
+**ข้อผิดพลาดที่พบบ่อย**
+- ใช้ `getBy*` กับสิ่งที่มาหลัง request → ใช้ `findBy*`
+- `await new Promise(r => setTimeout(r, 500))` เพื่อ "รอให้เสร็จ" → ช้าและ flaky ใช้ `findBy*` / `waitFor`
+- mock `useQuery` หรือ `fetch` ด้วย `vi.mock` → เทสต์ผ่านแต่แอปพังได้ ใช้ MSW mock ที่ระดับ network
+- ลืม `cleanup()` ระหว่างเทสต์ (vitest ไม่ได้เปิด `globals`) → DOM ของเทสต์ก่อนค้าง ใส่ไว้ใน `setup.ts`
+- ทดสอบ implementation (`wrapper.vm.someRef`) แทนพฤติกรรม → refactor นิดเดียวเทสต์ก็พัง
+- เขียน E2E ทุกกรณี → ช้าและเปราะ ให้ E2E ครอบเฉพาะ flow หลัก ที่เหลือไว้ในชั้นล่าง
+
+### ⏳ Step 09 · Pattern สำหรับ Production (step ถัดไป)
 - Environment variables (`import.meta.env`) พร้อม type
 - จัดการ error ทั้งแอป: `app.config.errorHandler` และ `onErrorCaptured` (≈ Error Boundary)
 - `provide` / `inject` (≈ Context), `<Teleport>` (≈ Portal), `<Suspense>`, `<KeepAlive>`
@@ -354,7 +419,9 @@ onSettled: () => qc.invalidateQueries({ queryKey }),                 // จบ�
 | `<Link>`, `useRouter` | `<RouterLink>`, `useRouter` |
 | `layout.tsx` + `{children}` | nested route + `<RouterView>` |
 | react-hook-form + zod | VeeValidate + zod |
-| RTL `render`, `renderHook` | VTU `mount`, `withSetup` |
+| RTL `render`, `renderHook` | `@testing-library/vue` `render` หรือ VTU `mount`, `withSetup` |
+| react-query | `@tanstack/vue-query` (API เดียวกัน คืนค่าเป็น ref) |
+| Playwright / Cypress | เหมือนกันทุกอย่าง |
 | Next.js | Nuxt |
 
 ## วิธีเรียนแต่ละ step (ย่อ)
