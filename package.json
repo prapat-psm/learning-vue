@@ -16,10 +16,12 @@
     "test:04": "npm run test:unit -w steps/04-router -- --run",
     "dev:05": "npm run dev -w steps/05-pinia",
     "test:05": "npm run test:unit -w steps/05-pinia -- --run",
+    "dev:06": "npm run dev -w steps/06-forms",
+    "test:06": "npm run test:unit -w steps/06-forms -- --run",
     "test": "npm run test:unit --workspaces -- --run",
     "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces",
-    "dev": "npm run dev:05"
+    "dev": "npm run dev:06"
   },
   "engines": {
     "node": "^22.18.0 || >=24.12.0"
