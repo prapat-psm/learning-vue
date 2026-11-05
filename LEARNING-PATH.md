@@ -4,6 +4,8 @@
 เราสร้างแอปเดียวชื่อ **Task Board** แล้วค่อยๆ ขยายทีละ step แต่ละ step มีโค้ดที่รันได้จริงอยู่ใน [`steps/`](steps)
 
 > สัญลักษณ์: ✅ ทำเสร็จแล้ว · ⏳ step ถัดไป
+>
+> เส้นทางต่อ: จบ Step 10 แล้วไปที่ **learning-playwright** (ดูท้ายเอกสาร)
 
 ---
 
@@ -382,18 +384,94 @@ npm run test:coverage -w steps/08-testing   # รายงานใน terminal 
 - ทดสอบ implementation (`wrapper.vm.someRef`) แทนพฤติกรรม → refactor นิดเดียวเทสต์ก็พัง
 - เขียน E2E ทุกกรณี → ช้าและเปราะ ให้ E2E ครอบเฉพาะ flow หลัก ที่เหลือไว้ในชั้นล่าง
 
-### ⏳ Step 09 · Pattern สำหรับ Production (step ถัดไป)
-- Environment variables (`import.meta.env`) พร้อม type
-- จัดการ error ทั้งแอป: `app.config.errorHandler` และ `onErrorCaptured` (≈ Error Boundary)
-- `provide` / `inject` (≈ Context), `<Teleport>` (≈ Portal), `<Suspense>`, `<KeepAlive>`
-- Performance: `shallowRef`, `v-memo`, async component และวิเคราะห์ขนาด bundle
-- Accessibility: ย้าย focus เมื่อเปลี่ยนหน้า และ live region
+### ✅ Step 09 · Pattern สำหรับ Production · `steps/09-production`
 
-### ⏳ Step 10 · Build และ Deploy
+**เรียนอะไร:** ของที่แอปจริงทุกตัวต้องมี แต่ tutorial ส่วนใหญ่ข้ามไป: config, error, notification, dialog, performance และ accessibility
+
+**ทำไมต้องมี step นี้:** แอป step 08 "ทำงานได้" แต่ถ้า env ผิด หน้าใดหน้าหนึ่ง crash หรือผู้ใช้ใช้ screen reader แอปจะพังแบบเงียบๆ หรือใช้ไม่ได้
+
+**1. Env config ที่ตรวจตั้งแต่เริ่มแอป** (`src/config.ts`, `.env.example`)
+```ts
+const envSchema = z.object({ VITE_API_URL: z.union([z.literal(''), z.string().url()]).optional(), ... })
+export const config = parseEnv(import.meta.env)   // ผิด → throw ตอนเปิดแอปเลย พร้อมบอกทุกตัวที่ผิด
+```
+- `import.meta.env.VITE_*` ≈ `process.env.NEXT_PUBLIC_*` ของ Next.js: **เป็นข้อมูลสาธารณะ** ถูกฝังใน JS ที่เบราว์เซอร์โหลด ห้ามใส่ secret
+- โค้ดส่วนอื่นใช้ `config.apiUrl` แทนการอ่าน `import.meta.env` กระจายทั่วแอป
+- แยก `parseEnv()` เป็นฟังก์ชันล้วน จึงเทสต์ได้ทุกกรณี
+
+**2. `provide` / `inject` ≈ React Context** (toast + confirm dialog)
+```ts
+export const ToastKey: InjectionKey<ToastApi> = Symbol('toast')   // ≈ createContext<ToastApi>()
+app.provide(ToastKey, api)                                         // ≈ <Provider value={api}>
+const toast = inject(ToastKey)                                     // ≈ useContext(ToastContext)
+```
+- ห่อเป็น **plugin** (`app.use(createToast())`) แบบเดียวกับที่ vue-router และ vue-query ทำ
+- `useToast()` throw error ชัดเจนเมื่อลืมติดตั้ง plugin ดีกว่าได้ `undefined` แล้วพังทีหลัง
+- **ทำไมไม่ใช้ Pinia:** toast เป็น "บริการของแอป" ไม่ใช่ข้อมูลของแอป ส่วน `InjectionKey` ทำให้ type ถูกต้องตลอด
+
+**3. `<Teleport>` ≈ `createPortal`**
+- toast และ dialog render ไปที่ท้าย `<body>` จึงไม่โดน `overflow: hidden` หรือ `z-index` ของ parent ทับ
+- **ในเทสต์:** element ที่ teleport ไม่อยู่ใน `wrapper` ของ VTU แต่ `screen` ของ Testing Library ค้นทั้ง `body` จึงเจอปกติ
+
+**4. Confirm dialog แทน `window.confirm()`**
+- `confirm.ask('Discard?')` คืน **Promise** ปุ่มใน dialog เป็นตัว resolve
+- Route guard รอ Promise ได้: `onBeforeRouteLeave(async () => { if (!(await confirm.ask(...))) return false })`
+- a11y: `role="alertdialog"`, `aria-modal`, ย้าย focus เข้า dialog (ไปที่ปุ่มที่ไม่อันตรายก่อน), กด Esc เพื่อยกเลิก, ปิดแล้วคืน focus ที่เดิม
+
+**5. จัดการ error สองชั้น**
+| ชั้น | Vue | React |
+|---|---|---|
+| ต่อหน้า | `<ErrorBoundary>` ใช้ `onErrorCaptured` (return `false` = หยุดไม่ให้ลามต่อ) | Error Boundary (class component) |
+| ทั้งแอป | `app.config.errorHandler` | ไม่มีตัวตรง ต้องใช้ boundary ที่ root |
+| นอก Vue | `window` `unhandledrejection` | เหมือนกัน |
+- ทุก error ไปที่เดียวคือ `logger.reportError()` (ของจริงส่งเข้า Sentry ที่จุดนี้)
+- ErrorBoundary ครอบแค่ `<RouterView>` เมื่อหน้าใด crash, header ยังใช้ได้ และเปลี่ยนหน้าแล้วจะ reset ตัวเอง
+- ลองเปิด `/debug/error` ดูได้
+
+**6. `<KeepAlive>`** (ไม่มีตัวเทียบตรงใน React)
+```vue
+<RouterView v-slot="{ Component }">
+  <KeepAlive include="BoardView"><component :is="Component" /></KeepAlive>
+</RouterView>
+```
+- เปิดหน้า task แล้วกลับมา: ข้อความที่พิมพ์ค้าง และ filter ยังอยู่ เพราะ component ไม่ถูกทำลาย แค่ซ่อน
+- ใช้ `onActivated` / `onDeactivated` แทน `onMounted` เมื่อต้องทำงานทุกครั้งที่กลับมาเห็น
+- **cache เฉพาะหน้าที่คุ้ม** ถ้า cache ทุกหน้าจะกินหน่วยความจำ และฟอร์มอาจแสดงค่าเก่า
+
+**7. Performance: วัดก่อนแล้วค่อยแก้**
+- `v-memo="[task.title, task.done]"` ข้ามการ render แถวที่ไม่เปลี่ยน ≈ `React.memo` คุ้มเฉพาะ list ยาว
+- `shallowRef` สำหรับข้อมูลก้อนใหญ่ที่แทนทั้งก้อน (ใช้แล้วใน `useFetch`, `ErrorBoundary`, `confirm`)
+- lazy route / dynamic `import()` มีตั้งแต่ step 04 แล้ว (MSW ก็โหลดแบบ lazy)
+- Vue ไม่ต้องใช้ `useMemo` / `useCallback` เพราะ `setup` รันครั้งเดียว
+
+**8. Accessibility เมื่อเปลี่ยนหน้า** (`RouteAnnouncer.vue`)
+- SPA เปลี่ยนหน้าโดยไม่โหลดใหม่ screen reader จึงไม่รู้ว่าเปลี่ยนหน้าแล้ว
+- หลังเปลี่ยน route: อ่าน `document.title` ผ่าน `aria-live` แล้วย้าย focus ไปที่ `<main tabindex="-1">` (Next.js App Router มี route announcer ในตัวที่ทำแบบนี้)
+- ไม่แย่ง focus ตอนโหลดหน้าครั้งแรก (`from === START_LOCATION`)
+
+**`<Suspense>` ล่ะ?** ยังเป็น experimental ใน Vue 3.5 และแอปนี้ใช้ `isPending` ของ TanStack Query อยู่แล้ว จึงไม่ใช้ (React ใช้ Suspense กับ data fetching มากกว่า)
+
+**ข้อผิดพลาดที่พบบ่อย**
+- ใส่ API key ลับใน `VITE_*` → ทุกคนเห็นใน bundle ต้องเก็บไว้ฝั่ง server
+- `inject()` โดยไม่มี default และไม่ throw → ได้ `undefined` แล้วพังห่างจากต้นเหตุ
+- ErrorBoundary ครอบทั้งแอป → crash จุดเดียว ทั้งหน้าจอหาย ให้ครอบเป็นส่วนๆ
+- ลืมคืน focus หลังปิด dialog → ผู้ใช้ keyboard หลงที่
+- ใส่ `v-memo` ทุกที่ → ถ้าลืมใส่ค่าที่ใช้ใน template ลงใน array หน้าจอจะไม่อัปเดต (บั๊กหายาก)
+
+### ⏳ Step 10 · Build และ Deploy (step ถัดไป)
 - `vite build`, base URL และ SPA fallback (ทุก path ต้องตอบ `index.html`)
 - CI ด้วย GitHub Actions: lint → type-check → test → build
 - Deploy ขึ้น Vercel หรือ Netlify พร้อม preview ทุก PR
 - แนะนำ **Nuxt** (SSR, SSG, file-based routing) ซึ่งเทียบได้กับ Next.js ของโลก Vue
+
+---
+
+## ➡️ จบ learning-vue แล้วไปต่อที่ `learning-playwright`
+
+เมื่อจบ Step 10 แล้ว คอร์สถัดไปคือ **learning-playwright**: tutorial Playwright สำหรับมือใหม่ แยกเป็น repo ของตัวเอง
+- **ทำไมแยก repo:** Playwright ไม่ผูกกับ framework ใด เทสต์ชุดเดียวรันได้ทั้งแอป Vue, React และ Next.js เพราะมันคุยกับ DOM ในเบราว์เซอร์จริง ไม่ใช่กับ component
+- **ต่อยอดจากที่นี่:** step 08 มี E2E 3 flow แล้ว (`steps/08-testing/e2e`) ส่วน learning-playwright จะลงลึกเรื่อง locator, auto-wait, fixture, Page Object, network mocking, trace viewer, visual test และ CI
+- **ใช้แอปเดิมเป็นตัวทดสอบ:** Task Board จาก step 07-09
 
 ---
 
@@ -410,7 +488,12 @@ npm run test:coverage -w steps/08-testing   # รายงานใน terminal 
 | Props + callback props | `defineProps` + `defineEmits` |
 | `value` + `onChange` | `v-model` / `defineModel` |
 | `children`, render props | slot, scoped slot |
-| Context | `provide` / `inject` หรือ Pinia |
+| Context | `provide` / `inject` (บริการของแอป) หรือ Pinia (ข้อมูล) |
+| `createPortal` | `<Teleport to="body">` |
+| Error Boundary | `onErrorCaptured` + `app.config.errorHandler` |
+| `React.memo` | `v-memo` (ส่วนใหญ่ไม่ต้องใช้) |
+| (ไม่มี) | `<KeepAlive>` |
+| `process.env.NEXT_PUBLIC_*` | `import.meta.env.VITE_*` |
 | Zustand | Pinia |
 | `{cond && <A/>}` | `v-if` |
 | `list.map(...)` | `v-for` + `:key` |

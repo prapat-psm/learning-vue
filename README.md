@@ -14,12 +14,15 @@ See the full plan in [ROADMAP.md](ROADMAP.md) and the study order in [LEARNING-P
 | 06 | [steps/06-forms](steps/06-forms) | forms, hand-rolled vs VeeValidate + Zod, edit/new pages, leave guard |
 | 07 | [steps/07-api](steps/07-api) | fetch wrapper, hand-rolled `useFetch` + abort, MSW mock API, TanStack Query, optimistic updates |
 | 08 | [steps/08-testing](steps/08-testing) | Testing Library + user-event, factories, MSW scenarios, coverage thresholds, Playwright E2E |
-| 09 | coming | Production patterns |
+| 09 | [steps/09-production](steps/09-production) | typed + validated env, provide/inject toast & confirm (Teleport), ErrorBoundary + global handler, KeepAlive, v-memo, route announcer |
+| 10 | coming | Build & deploy |
+
+**Next course:** after step 10, continue with **learning-playwright** (Playwright for beginners, separate repo).
 
 ## Setup
 ```bash
 npx npm@11 install     # one install for all steps (npm workspaces). npm 10.9 crashes, use 11+ or pnpm
-npm run dev            # newest step (08) + Playground with every step → http://localhost:5173/playground
+npm run dev            # newest step (09) + Playground with every step → http://localhost:5173/playground
 npm run dev:02         # run one step on its own
 npm run test:02        # test a step
 npm test               # test every step
