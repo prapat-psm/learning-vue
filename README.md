@@ -2,7 +2,7 @@
 
 Learn Vue 3 from basics to production by building one **Task Board** app.
 Each step is a separate, runnable folder in [`steps/`](steps), and every step builds on the one before.
-See the full plan in [ROADMAP.md](ROADMAP.md).
+See the full plan in [ROADMAP.md](ROADMAP.md) and the study order in [LEARNING-PATH.md](LEARNING-PATH.md).
 
 | Step | Folder | Topic |
 |------|--------|-------|
@@ -11,7 +11,8 @@ See the full plan in [ROADMAP.md](ROADMAP.md).
 | 03 | [steps/03-composables](steps/03-composables) | composables, lifecycle, `watch` deep, localStorage |
 | 04 | [steps/04-router](steps/04-router) | Vue Router, nested + lazy routes, guards, **Playground with every step** |
 | 05 | [steps/05-pinia](steps/05-pinia) | Pinia store, `storeToRefs`, shared state, `createTestingPinia` |
-| 06 | coming | Forms + validation |
+| 06 | [steps/06-forms](steps/06-forms) | forms, hand-rolled vs VeeValidate + Zod, edit/new pages, leave guard |
+| 07 | coming | API calls + TanStack Query |
 
 ## Setup
 ```bash
