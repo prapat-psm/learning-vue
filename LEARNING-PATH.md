@@ -1,117 +1,284 @@
-# Vue.js Learning Path: from zero to production
+# เส้นทางการเรียน Vue.js: จากพื้นฐานจนถึง Production
 
-A study order for a React/Next.js developer learning Vue 3. Each step has a runnable folder in [`steps/`](steps) and a README.
-Mini project: **Task Board**, one app that grows each step.
+คู่มือนี้เขียนให้ **นักพัฒนา React / Next.js** ที่อยากเข้าใจ Vue 3 อย่างลึก ไม่ใช่แค่รันโค้ดให้ผ่าน
+เราสร้างแอปเดียวชื่อ **Task Board** แล้วค่อยๆ ขยายทีละ step แต่ละ step มีโค้ดที่รันได้จริงอยู่ใน [`steps/`](steps)
 
-**How to study each step (about 1 to 3 hours)**
-1. Read the step's `README.md`, starting with the Vue ↔ React table.
-2. Run it: `npm run dev:NN`. Change code and watch the page update.
-3. Read the tests: `npm run test:NN`, or `npx vitest` inside the folder for watch mode.
-4. Do the 3 exercises at the end of the README. Write the test first.
-5. Compare with the previous step: `git diff --no-index steps/0X-a/src steps/0Y-b/src`
-
-Setup (once): `npx npm@11 install` · Playground with every step: `npm run dev` → `/playground`
-
-Legend: ✅ done · ⏳ coming next
+> สัญลักษณ์: ✅ ทำเสร็จแล้ว · ⏳ step ถัดไป
 
 ---
 
-## Phase 1 · Foundations
+## ก่อนเริ่ม: ความคิดที่ต้องเปลี่ยนเมื่อมาจาก React
 
-### ✅ Step 01 · Reactivity basics · `steps/01-reactivity`
-- `<script setup>`, `ref`, `computed`, `watch`
-- Template syntax: `{{ }}`, `v-if/v-else`, `v-for` + `:key`, `v-model`, `@event.prevent`, `:class`
-- `<style scoped>`
-- **Key idea:** `setup` runs **once**. You mutate state and Vue tracks it, so there are no dependency arrays.
-- React: `useState` → `ref`, `useMemo` → `computed`, `useEffect` → `watch`
+ถ้าจำได้แค่หัวข้อเดียวจากเอกสารนี้ ให้จำหัวข้อนี้
+
+### 1. Component ใน Vue "รันครั้งเดียว" ส่วนใน React "รันทุกครั้งที่ render"
+
+```tsx
+// React: ฟังก์ชันนี้ถูกเรียกใหม่ทุกครั้งที่ state เปลี่ยน
+function Counter() {
+  const [count, setCount] = useState(0)
+  const double = useMemo(() => count * 2, [count]) // ต้องบอก dependency เอง
+  return <button onClick={() => setCount(count + 1)}>{double}</button>
+}
+```
+
+```vue
+<!-- Vue: <script setup> รันแค่ครั้งเดียวตอนสร้าง component -->
+<script setup lang="ts">
+const count = ref(0)
+const double = computed(() => count.value * 2) // Vue รู้ dependency เอง
+</script>
+<template>
+  <button @click="count++">{{ double }}</button>
+</template>
+```
+
+**ผลที่ตามมา:**
+- ไม่มี dependency array ไม่มี stale closure ไม่มี rules of hooks
+- ไม่ค่อยต้องใช้ `useCallback` หรือ `memo` เพราะฟังก์ชันไม่ถูกสร้างใหม่ทุก render
+- `if` / `for` ใน `<script setup>` **จะไม่รันซ้ำ** เมื่อ state เปลี่ยน สิ่งที่ต้องคำนวณใหม่ตาม state ต้องอยู่ใน `computed`, `watch` หรือ template
+
+### 2. Vue "แก้ค่าตรงๆ" ได้ (mutable) ส่วน React ต้อง "สร้างค่าใหม่" (immutable)
+
+```ts
+// React
+setTasks([...tasks, newTask])
+setUser({ ...user, name: 'A' })
+
+// Vue
+tasks.value.push(newTask)
+user.value.name = 'A'
+```
+
+Vue ห่อข้อมูลด้วย **Proxy** ทุกครั้งที่เราอ่านค่า Vue จะจดไว้ว่า "ใครอ่านอะไร" (track) และเมื่อเราเขียนค่า Vue จะแจ้งเฉพาะคนที่อ่านค่านั้นให้อัปเดต (trigger) นี่คือระบบ **reactivity** ซึ่งเป็นหัวใจของ Vue
+
+### 3. Template ไม่ใช่ JSX
+
+Template ถูก compile เป็น render function ที่ optimize ไว้แล้ว Vue รู้ว่าส่วนไหนของ template คงที่และส่วนไหนเปลี่ยนได้ จึงอัปเดตเฉพาะจุดที่จำเป็น ข้อแลกเปลี่ยนคือความยืดหยุ่นน้อยกว่า JSX เล็กน้อย แต่อ่านง่ายและเร็วกว่าโดยไม่ต้องจูน
+
+---
+
+## Phase 1 · พื้นฐาน
+
+### ✅ Step 01 · Reactivity · `steps/01-reactivity`
+
+**เรียนอะไร:** `ref`, `computed`, `watch` และ template syntax พื้นฐาน
+
+**แนวคิดสำคัญ**
+
+| เครื่องมือ | ใช้เมื่อ | เทียบ React |
+|---|---|---|
+| `ref(x)` | เก็บค่าที่เปลี่ยนได้ อ่านและเขียนผ่าน `.value` ใน script (ใน template ไม่ต้องใส่ `.value`) | `useState` |
+| `computed(() => ...)` | ค่าที่ **คำนวณจากค่าอื่น** ระบบจะ cache ไว้และคำนวณใหม่เมื่อ dependency เปลี่ยนเท่านั้น | `useMemo` |
+| `watch(source, cb)` | ต้องการ **side effect** เมื่อค่าเปลี่ยน เช่น เปลี่ยน `document.title` หรือเรียก API | `useEffect` |
+
+**Template syntax ที่ต้องรู้**
+- `{{ expr }}` แสดงค่า
+- `:attr="expr"` (ย่อมาจาก `v-bind`) ผูก attribute กับค่า
+- `@event="fn"` (ย่อมาจาก `v-on`) ดัก event ส่วน `.prevent` คือ `e.preventDefault()`
+- `v-if` / `v-else` ใช้แสดงแบบมีเงื่อนไข ส่วน `v-show` แค่ซ่อนด้วย CSS
+- `v-for="t in list" :key="t.id"` ใช้วนลูป และต้องมี `key` เสมอ เหมือน React
+- `v-model` คือ two-way binding รวม `value` กับ `onChange` ไว้ในคำเดียว
+
+**ข้อผิดพลาดที่พบบ่อย**
+- ลืม `.value` ใน script เช่น `count + 1` จะได้ object ไม่ใช่ตัวเลข
+- ใช้ `watch` ทำสิ่งที่ควรเป็น `computed` กฎคือ ถ้า "ได้ค่าออกมา" ให้ใช้ `computed` ถ้า "ทำอะไรบางอย่าง" ให้ใช้ `watch`
+
+---
 
 ### ✅ Step 02 · Components · `steps/02-components`
-- `defineProps`, `defineEmits`, `defineModel` (custom `v-model`)
-- Slots: default, named (`#empty`), fallback content
-- **Key idea:** props down, events up. Never mutate props.
-- Testing: `mount`, `setProps`, `emitted()`
-- React: callback props → emits, `children`/ReactNode props → slots
 
-### ✅ Step 03 · Composables · `steps/03-composables`
-- `useTasks`, `useLocalStorage`, `useEventListener`, `useOnline`
-- Lifecycle: `onMounted`, `onUnmounted`; `watch(..., { deep: true })`; `readonly`
-- `ref` vs `reactive`, `toRefs`, why to return refs from composables
-- Testing a composable: call it directly, or use `withSetup` (≈ `renderHook`)
-- Bug lesson: `ref(initial)` shares the object, so use `structuredClone`
-- React: custom hooks, without the rules of hooks
+**เรียนอะไร:** แยก component, ส่งข้อมูลด้วย props, ส่งเหตุการณ์ด้วย emits และ slots
 
-## Phase 2 · Building a real app
+**แนวคิดสำคัญ: "Props down, events up"**
+- พ่อส่งข้อมูลให้ลูกผ่าน **props** ซึ่งลูก **ห้ามแก้** (อ่านอย่างเดียว เหมือน React)
+- ลูกบอกพ่อว่า "มีอะไรเกิดขึ้น" ผ่าน **emit** แล้วพ่อเป็นคนแก้ state เอง
 
-### ✅ Step 04 · Vue Router + Playground · `steps/04-router`
-- Routes config, `<RouterView>`, `<RouterLink>`, named routes
-- Params `/tasks/:id(\\d+)`, a `props` function, lazy routes `() => import()`
-- Nested routes (layouts), catch-all 404, `meta` + `afterEach`
-- Guards: `beforeEnter`, `beforeEach`
-- Gotcha: same route with a new param **reuses** the component
-- Testing: `createMemoryHistory`, `RouterLinkStub`, `vi.waitFor`
-- Next.js: `app/` folders → `routes.ts`, `layout.tsx` → nested `RouterView`, `notFound()` → guard
+```ts
+// TaskItem.vue
+const props = defineProps<{ task: Task }>()
+const emit = defineEmits<{ remove: [id: number] }>()
+// <button @click="emit('remove', task.id)">
 
-### ✅ Step 05 · Pinia · `steps/05-pinia`
-- `defineStore` (setup style): state, getters, actions
-- `storeToRefs` (and why plain destructuring breaks)
-- Stores outside components (route guards), `$patch`, `$reset`, HMR
-- Composable vs store: per-component vs app-wide state
-- Testing: `setActivePinia(createPinia())`, `createTestingPinia({ createSpy: vi.fn })`
-- React: Zustand / Context + reducer
+// พ่อ: <TaskItem :task="t" @remove="removeTask" />
+```
 
-### ✅ Step 06 · Forms + validation · `steps/06-forms`
-- `v-model` modifiers (`.trim`, `.number`, `.lazy`), `<select>`, checkbox, date inputs
-- Hand-rolled validation with `computed` errors, then the same form with **VeeValidate + Zod**
-- `useForm`, `defineField`, `handleSubmit`, touched/dirty state, server-side errors
-- One Zod schema for types (`z.infer`) and validation
-- Create and edit pages: `/tasks/new`, `/tasks/:id/edit`
-- Server-side errors back into a field (`setFieldError`), unsaved-changes leave guard
-- React: react-hook-form + zod
+React ใช้ callback prop (`onRemove`) ส่วน Vue แยก "ข้อมูล" กับ "เหตุการณ์" ออกจากกันชัดเจน ทำให้อ่านง่ายว่า component นี้รับอะไรและส่งอะไรออก
 
-### ⏳ Step 07 · API calls
-- `fetch` in a composable: loading, error, and abort with `AbortController`
-- A mock REST API (json-server or MSW)
-- **TanStack Query for Vue**: `useQuery`, `useMutation`, cache invalidation, optimistic update
-- Server state (Query) vs client state (Pinia)
-- React: TanStack Query (same API) / Server Components data fetching
+**`defineModel`** ทำให้ component ของเราใช้ `v-model` ได้ (เบื้องหลังคือ prop `modelValue` กับ event `update:modelValue`) ใช้กับ input ที่ต้องแก้ค่าสองทางจริงๆ เท่านั้น
 
-## Phase 3 · Production quality
+**Slots** คือช่องที่ให้พ่อ "ใส่ template" เข้าไปในลูก เทียบได้กับ `children` หรือ prop ที่รับ ReactNode ใน React ส่วน **named slot** (`#empty`) คือการมีหลายช่อง และ slot สามารถมี fallback content ได้
 
-### ⏳ Step 08 · Testing deep dive
-- Test pyramid: unit (composables/stores) → component → integration (router + pinia)
-- MSW for API mocking in Vitest, coverage with `vitest --coverage`
-- E2E with Playwright: critical flows only
-- Accessible queries (`@testing-library/vue`) vs Vue Test Utils
-
-### ⏳ Step 09 · Production patterns
-- `import.meta.env` and `.env` files, typed env
-- Error handling: `app.config.errorHandler`, `onErrorCaptured` (≈ error boundary)
-- `provide/inject` (≈ Context), `<Teleport>` (≈ portal), `<Suspense>`, `<KeepAlive>`
-- Performance: `shallowRef`, `v-memo`, `v-once`, async components, bundle analysis
-- Accessibility: focus management on route change, live regions
-
-### ⏳ Step 10 · Build & deploy
-- `vite build`, preview, base URL, SPA fallback
-- CI with GitHub Actions: lint → type-check → test → build
-- Deploy to Vercel or Netlify, with a preview deploy per PR
-- Intro to **Nuxt** (SSR/SSG, file-based routing) ≈ Next.js for Vue
+**ข้อผิดพลาดที่พบบ่อย**
+- แก้ prop ตรงๆ เช่น `props.task.done = true` ESLint จะเตือน ให้ emit แทน
+- ใช้ `defineModel` กับทุกอย่าง ถ้าเป็น "การกระทำ" (ลบ, บันทึก) ให้ใช้ emit
 
 ---
 
-## Cheat sheet: React → Vue
+### ✅ Step 03 · Composables · `steps/03-composables`
+
+**เรียนอะไร:** แยก logic ออกจาก component เป็นฟังก์ชันที่ใช้ซ้ำได้
+
+**Composable คืออะไร** คือฟังก์ชันชื่อขึ้นต้นด้วย `use` ที่ใช้ `ref`, `computed`, `watch` และ lifecycle ภายใน แล้ว return ค่าออกมา เทียบได้กับ **custom hook** แต่ข้อดีคือ:
+- ถูกเรียกครั้งเดียว จึงเรียกใน `if` หรือ loop ได้ และไม่มี rules of hooks
+- เรียกนอก component ได้ (เช่นใน test) ถ้าไม่ได้ใช้ lifecycle
+
+**Lifecycle**
+- `onMounted(fn)` ทำงานหลัง component แสดงบนหน้าจอ เช่น ผูก event listener
+- `onUnmounted(fn)` ทำงานตอน component ถูกเอาออก ใช้ cleanup
+- คู่นี้แทน `useEffect(() => { ...; return cleanup }, [])` ใน React
+
+**`ref` กับ `reactive`**
+```ts
+const count = ref(0)                   // ใช้ได้ทุกชนิด ต้องใช้ .value
+const form = reactive({ a: 1 })        // ใช้กับ object เท่านั้น ไม่ต้องใช้ .value
+const { a } = form                     // ❌ reactivity หลุด a กลายเป็นตัวเลขธรรมดา
+const { a } = toRefs(form)             // ✅ a เป็น Ref
+```
+**คำแนะนำ:** ใช้ `ref` เป็นหลัก และ return เป็น object ของ ref จาก composable ผู้เรียกจะ destructure ได้อย่างปลอดภัย
+
+**บทเรียนจาก bug จริงใน step นี้:** `ref(initial)` ห่อ object **ตัวเดียวกัน** กับค่า default เมื่อ `push` เข้าไป ค่า default ก็เปลี่ยนตามด้วย วิธีแก้คือ `structuredClone(initial)` (ใน React ก็เกิดได้ถ้า mutate initial state)
+
+---
+
+## Phase 2 · สร้างแอปจริง
+
+### ✅ Step 04 · Vue Router + Playground · `steps/04-router`
+
+**เรียนอะไร:** ทำแอปหลายหน้า (SPA) ด้วย Vue Router
+
+**ต่างจาก Next.js อย่างไร**
+- Next.js ใช้ **file-based routing** (`app/tasks/[id]/page.tsx`)
+- Vue Router ใช้ **config-based routing** คือเขียนรายการ route เองใน `routes.ts` ซึ่งยืดหยุ่นกว่าแต่ต้องเขียนเอง (ถ้าอยากได้แบบ file-based ให้ใช้ Nuxt)
+- Vue Router ทำงานฝั่ง client อย่างเดียว ไม่มี Server Components
+
+**แนวคิดสำคัญ**
+- `<RouterView />` คือจุดที่หน้าที่ match จะถูก render ≈ `{children}` ใน `layout.tsx`
+- **Nested routes** คือ route ที่มี `children` และมี `<RouterView />` ซ้อนข้างใน ≈ layout ซ้อนกัน
+- **Lazy route** `component: () => import('...')` แยกโค้ดหน้านั้นเป็นไฟล์ JS ต่างหาก โหลดเมื่อเข้าหน้าครั้งแรก
+- **`props` function** แปลง param (string) เป็น prop ที่มี type ทำให้ component ไม่ผูกกับ router และ test ง่าย
+- **Navigation guard** (`beforeEnter`, `beforeEach`) ตรวจก่อนเข้าหน้า เช่น ถ้าไม่มี task นี้ให้ไป 404 ≈ `notFound()` / `middleware.ts`
+
+**กับดักสำคัญ:** จาก `/tasks/1` ไป `/tasks/2` Vue **ใช้ component เดิม** (ไม่ remount) ทุกอย่างที่ขึ้นกับ id จึงต้องเป็น `computed` จาก props หรือ `watch(() => props.id)`
+
+**Playground:** หน้า `/playground/NN` โหลด `App.vue` ของ step ก่อนหน้ามาแสดงในเว็บเดียว เป็นตัวอย่างการใช้ nested route กับ lazy route ในงานจริง
+
+---
+
+### ✅ Step 05 · Pinia · `steps/05-pinia`
+
+**เรียนอะไร:** state กลางที่ทั้งแอปใช้ร่วมกัน
+
+**ปัญหาที่ Pinia แก้:** ใน step 04 การเรียก `useTasks()` ทุกครั้งสร้าง state **ก้อนใหม่** board กับหน้าอื่นจึงไม่ sync กัน ส่วน `useTasksStore()` คืน **instance เดียวกันทั้งแอป** (singleton)
+
+```ts
+export const useTasksStore = defineStore('tasks', () => {
+  const tasks = ref<Task[]>([])                         // state
+  const remaining = computed(() => ...)                 // getter
+  function addTask(title: string) { ... }               // action
+  return { tasks, remaining, addTask }                  // ต้อง return state ทั้งหมด
+})
+```
+เขียนเหมือน composable ทุกอย่าง แค่ห่อด้วย `defineStore` เทียบได้กับ **Zustand** แต่แก้ค่าตรงๆ ได้โดยไม่ต้อง `set`
+
+**กฎสำคัญเรื่อง destructure**
+```ts
+const { remaining } = store               // ❌ ได้ค่าธรรมดา ไม่อัปเดต
+const { remaining } = storeToRefs(store)  // ✅ ยัง reactive
+const { addTask } = store                 // ✅ action เป็นฟังก์ชันธรรมดา destructure ได้
+```
+
+**เลือกใช้อะไรเมื่อไหร่**
+| ใช้ | เมื่อ |
+|---|---|
+| `ref` ใน component | state ของ component นั้นเท่านั้น |
+| Composable | logic ที่ใช้ซ้ำได้ แต่ **แต่ละ component มีของตัวเอง** (`useOnline`, form) |
+| Pinia store | ข้อมูลที่ **ทั้งแอปต้องเห็นตรงกัน** (user, ตะกร้า, รายการ task) |
+| TanStack Query (step 07) | ข้อมูลจาก **server/API** (cache, refetch) |
+
+**การ test:** test ตัว store จริงด้วย `setActivePinia(createPinia())` ส่วน test component ใช้ `createTestingPinia` ที่เปลี่ยน action เป็น `vi.fn()` เพื่อตรวจว่า "component เรียก action ถูกต้อง" โดยไม่ต้องสนใจ logic ข้างใน
+
+---
+
+### ✅ Step 06 · Forms + Validation · `steps/06-forms`
+
+**เรียนอะไร:** ฟอร์มที่ใช้งานได้จริง พร้อม validation, error และ UX ที่ดี
+
+**ทำสองแบบให้เห็นความต่าง**
+1. **เขียนเอง** (ช่องเพิ่มงานด่วน): `ref` + `computed` error + แสดง error หลังกด submit เหมาะกับฟอร์มเล็ก 1-2 ช่อง
+2. **VeeValidate + Zod** (หน้า new/edit): เหมาะกับฟอร์มจริงที่มีหลายช่อง, touched/dirty และ error จาก server
+
+**Schema เดียวใช้ได้สองอย่าง**
+```ts
+const taskSchema = z.object({ title: z.string().trim().min(3), priority: z.enum([...]) })
+type TaskInput = z.infer<typeof taskSchema>  // type มาจาก schema จึงไม่มีทางไม่ตรงกัน
+```
+
+**เทียบ react-hook-form**
+| VeeValidate | react-hook-form |
+|---|---|
+| `useForm({ validationSchema: toTypedSchema(schema) })` | `useForm({ resolver: zodResolver(schema) })` |
+| `defineField('title')` | `register('title')` |
+| `errors.title` | `formState.errors.title?.message` |
+| `meta.dirty` | `formState.isDirty` |
+| `setFieldError('title', msg)` | `setError('title', { message })` |
+
+**หลัก UX ที่ใช้ได้กับทุกโปรเจกต์**
+- **ไม่เตือนขณะพิมพ์:** validate ตอน blur/change และตรวจทั้งหมดตอน submit
+- **Error ต้องเข้าถึงได้ (a11y):** ใส่ `aria-invalid`, `aria-describedby` และ `role="alert"`
+- **กฎฝั่ง client อยู่ใน schema ส่วนกฎฝั่ง server ส่งกลับเข้าช่อง:** เช่น "ชื่อซ้ำ" schema ไม่รู้ จึงตรวจตอน submit แล้วใช้ `setFieldError` เหมือนการ map error 422 จาก API
+- **แก้บน draft แล้วบันทึกตอน submit:** ฟอร์มได้สำเนาข้อมูล store จะเปลี่ยนเมื่อกด Save เท่านั้น
+- **เตือนเมื่อมีการแก้ที่ยังไม่บันทึก:** ใช้ `onBeforeRouteLeave`
+
+---
+
+### ⏳ Step 07 · เรียก API
+
+**จะเรียน:** ดึงและส่งข้อมูลกับ server จริง
+
+- `fetch` ใน composable จัดการสถานะ loading, error และยกเลิก request ด้วย `AbortController`
+- Mock API ด้วย MSW หรือ json-server
+- **TanStack Query for Vue** (`useQuery`, `useMutation`) ใช้ API เดียวกับฝั่ง React เกือบทุกอย่าง
+- **แนวคิดสำคัญ:** แยก **server state** (ข้อมูลจาก API ที่ต้อง cache และ refetch → Query) ออกจาก **client state** (UI state, ข้อมูลที่ผู้ใช้กำลังแก้ → Pinia/ref) อย่าเอาข้อมูล API ไปยัดใส่ store เอง
+- Optimistic update: อัปเดต UI ก่อน server ตอบ แล้ว rollback ถ้าล้มเหลว
+
+## Phase 3 · คุณภาพระดับ Production
+
+### ⏳ Step 08 · Testing เชิงลึก
+- **Test pyramid:** unit (composable/store) มากที่สุด → component → integration (router + pinia) → E2E น้อยที่สุด
+- Mock API ใน Vitest ด้วย MSW และวัด coverage
+- E2E ด้วย Playwright เฉพาะ flow สำคัญ (สร้าง แก้ ลบ task)
+- `@testing-library/vue` (query แบบที่ผู้ใช้มองเห็น) เทียบกับ Vue Test Utils (เข้าถึงข้างใน component)
+
+### ⏳ Step 09 · Pattern สำหรับ Production
+- Environment variables (`import.meta.env`) พร้อม type
+- จัดการ error ทั้งแอป: `app.config.errorHandler` และ `onErrorCaptured` (≈ Error Boundary)
+- `provide` / `inject` (≈ Context), `<Teleport>` (≈ Portal), `<Suspense>`, `<KeepAlive>`
+- Performance: `shallowRef`, `v-memo`, async component และวิเคราะห์ขนาด bundle
+- Accessibility: ย้าย focus เมื่อเปลี่ยนหน้า และ live region
+
+### ⏳ Step 10 · Build และ Deploy
+- `vite build`, base URL และ SPA fallback (ทุก path ต้องตอบ `index.html`)
+- CI ด้วย GitHub Actions: lint → type-check → test → build
+- Deploy ขึ้น Vercel หรือ Netlify พร้อม preview ทุก PR
+- แนะนำ **Nuxt** (SSR, SSG, file-based routing) ซึ่งเทียบได้กับ Next.js ของโลก Vue
+
+---
+
+## ตารางเทียบ React → Vue
 
 | React / Next.js | Vue 3 |
-|-----------------|-------|
+|---|---|
 | `useState` | `ref` |
 | `useMemo` | `computed` |
 | `useEffect(fn, [x])` | `watch(x, fn)` / `watchEffect` |
 | `useEffect(fn, [])` + cleanup | `onMounted` + `onUnmounted` |
 | `useRef` (DOM) | `useTemplateRef('el')` |
-| custom hook | composable |
-| props + callback props | `defineProps` + `defineEmits` |
+| Custom hook | Composable |
+| Props + callback props | `defineProps` + `defineEmits` |
 | `value` + `onChange` | `v-model` / `defineModel` |
-| `children`, render props | default slot, scoped slots |
-| Context | `provide` / `inject`, or Pinia |
+| `children`, render props | slot, scoped slot |
+| Context | `provide` / `inject` หรือ Pinia |
 | Zustand | Pinia |
 | `{cond && <A/>}` | `v-if` |
 | `list.map(...)` | `v-for` + `:key` |
@@ -123,8 +290,15 @@ Legend: ✅ done · ⏳ coming next
 | RTL `render`, `renderHook` | VTU `mount`, `withSetup` |
 | Next.js | Nuxt |
 
-## Links
-- Vue docs: https://vuejs.org/guide/introduction.html (use the "Composition API" toggle)
+## วิธีเรียนแต่ละ step (ย่อ)
+1. อ่านหัวข้อของ step นั้นในเอกสารนี้ เพื่อเข้าใจ **ทำไม** ก่อน
+2. อ่าน `README.md` ใน folder ของ step แล้วเปิดโค้ด ทุกไฟล์มี comment เทียบกับ React
+3. รัน `npm run dev` ลองแก้โค้ดดูผล และอ่าน test เพื่อดูว่าโค้ดควรทำงานอย่างไร
+4. ทำแบบฝึกหัดท้าย README โดยเขียน test ก่อน
+5. เทียบกับ step ก่อนหน้า: `git diff --no-index steps/05-pinia/src steps/06-forms/src`
+
+## แหล่งอ้างอิง
+- Vue: https://vuejs.org/guide/introduction.html (เลือก Composition API)
 - Vue Router: https://router.vuejs.org · Pinia: https://pinia.vuejs.org
 - VeeValidate: https://vee-validate.logaretm.com/v4/ · TanStack Query Vue: https://tanstack.com/query/latest/docs/framework/vue/overview
 - Vue Test Utils: https://test-utils.vuejs.org · Nuxt: https://nuxt.com
