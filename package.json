@@ -23,10 +23,13 @@
     "dev:08": "npm run dev -w steps/08-testing",
     "test:08": "npm run test:unit -w steps/08-testing -- --run",
     "test:e2e:08": "npm run test:e2e -w steps/08-testing",
+    "dev:09": "npm run dev -w steps/09-production",
+    "test:09": "npm run test:unit -w steps/09-production -- --run",
+    "test:e2e:09": "npm run test:e2e -w steps/09-production",
     "test": "npm run test:unit --workspaces -- --run",
     "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces",
-    "dev": "npm run dev:08"
+    "dev": "npm run dev:09"
   },
   "engines": {
     "node": "^22.18.0 || >=24.12.0"
